@@ -4,12 +4,31 @@ using Microsoft.Extensions.Logging;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.File;
 using Newtonsoft.Json.Linq;
+using Polly;
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace SimpleGhostBackup
 {
+    /// <summary>
+    /// Simple retry https://stackoverflow.com/a/35183487
+    /// </summary>
+    public class HttpRetryMessageHandler : DelegatingHandler
+    {
+        public HttpRetryMessageHandler(HttpClientHandler handler) : base(handler) { }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            System.Threading.CancellationToken cancellationToken) =>
+            Policy
+                .Handle<HttpRequestException>()
+                .Or<TaskCanceledException>()
+                .OrResult<HttpResponseMessage>(x => !x.IsSuccessStatusCode)
+                .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(3, retryAttempt)))
+                .ExecuteAsync(() => base.SendAsync(request, cancellationToken));
+    }
+
     public static class SimpleGhostBackup
     {
         [FunctionName("SimpleGhostBackup")]
@@ -43,7 +62,7 @@ namespace SimpleGhostBackup
             if (String.IsNullOrEmpty(storageConnection))
                 throw new ArgumentNullException("storageConnection is Required!");
 
-            var client = new HttpClient
+            var client = new HttpClient(new HttpRetryMessageHandler(new HttpClientHandler()))
             {
                 BaseAddress = new Uri(String.Format("https://{0}", blogUrl))
             };
