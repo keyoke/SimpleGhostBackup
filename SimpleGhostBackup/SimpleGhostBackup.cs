@@ -3,11 +3,15 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.File;
+using Microsoft.WindowsAzure.Storage.File.Protocol;
+using Microsoft.WindowsAzure.Storage.Shared.Protocol;
 using Newtonsoft.Json.Linq;
 using Polly;
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace SimpleGhostBackup
 {
@@ -23,7 +27,6 @@ namespace SimpleGhostBackup
             System.Threading.CancellationToken cancellationToken) =>
             Policy
                 .Handle<HttpRequestException>()
-                .Or<TaskCanceledException>()
                 .OrResult<HttpResponseMessage>(x => !x.IsSuccessStatusCode)
                 .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(3, retryAttempt)))
                 .ExecuteAsync(() => base.SendAsync(request, cancellationToken));
@@ -62,6 +65,10 @@ namespace SimpleGhostBackup
             if (String.IsNullOrEmpty(storageConnection))
                 throw new ArgumentNullException("storageConnection is Required!");
 
+            // Let get the number of snapshots that we should keep, default to last 4
+            int maxSnapshots = 4;
+            Int32.TryParse(config["MaxSnapshots"], out maxSnapshots);
+
             var client = new HttpClient(new HttpRetryMessageHandler(new HttpClientHandler()))
             {
                 BaseAddress = new Uri(String.Format("https://{0}", blogUrl))
@@ -98,7 +105,34 @@ namespace SimpleGhostBackup
                         // Create the snapshotg of the file share
                         log.LogInformation($"Backup file created - {0}", filename);
                         log.LogInformation($"Creating Azure Fileshare Snapshot");
-                        await share.SnapshotAsync();
+                        var s = await share.SnapshotAsync();
+                        if (s != null)
+                        {
+                            //Lets get all the current shares/snapshots
+                            FileContinuationToken token = null;
+                            var snapshots = new List<CloudFileShare>();
+                            do
+                            {
+                                ShareResultSegment resultSegment = await fileClient.ListSharesSegmentedAsync(token);
+                                snapshots.AddRange(resultSegment.Results);
+                                token = resultSegment.ContinuationToken;
+                            }
+                            while (token != null);
+
+                            //lets delete the old ones
+                            foreach (var snapshot in snapshots.Where(os => os.IsSnapshot).OrderByDescending(oos => oos.SnapshotTime).Skip(maxSnapshots).ToList())
+                            {
+                                try
+                                {
+                                    log.LogInformation($"Deleting snapshot - {0}, Created at {1}", snapshot.Name, snapshot.SnapshotTime);
+                                    await snapshot.DeleteAsync();
+                                }
+                                catch (Exception ex)
+                                {
+                                    log.LogInformation($"Failed to delete snapshot - '{0}'", ex.ToString());
+                                }    
+                            }
+                        }
                     }
                 }
             }
