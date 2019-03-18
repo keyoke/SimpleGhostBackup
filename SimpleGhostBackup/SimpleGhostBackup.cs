@@ -129,7 +129,7 @@ namespace SimpleGhostBackup
                                 }
                                 catch (Exception ex)
                                 {
-                                    log.LogInformation($"Failed to delete snapshot - '{0}'", ex.ToString());
+                                    log.LogError($"Failed to delete snapshot - '{0}'", ex.ToString());
                                 }    
                             }
                         }
