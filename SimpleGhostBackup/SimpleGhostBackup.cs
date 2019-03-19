@@ -35,7 +35,11 @@ namespace SimpleGhostBackup
     public static class SimpleGhostBackup
     {
         [FunctionName("SimpleGhostBackup")]
-        public async static Task Run([TimerTrigger("0 0 0 * * Sun")]TimerInfo myTimer, ILogger log, ExecutionContext context)
+        public async static Task Run([TimerTrigger("0 0 0 * * Sun"
+            #if DEBUG
+            ,RunOnStartup=true
+            #endif
+            )]TimerInfo myTimer, ILogger log, ExecutionContext context)
         {
             log.LogInformation($"SimpleGhostBackup function started execution at: {DateTime.Now}");
 
@@ -113,7 +117,7 @@ namespace SimpleGhostBackup
                             var snapshots = new List<CloudFileShare>();
                             do
                             {
-                                ShareResultSegment resultSegment = await fileClient.ListSharesSegmentedAsync(token);
+                                ShareResultSegment resultSegment = await fileClient.ListSharesSegmentedAsync(storageShareName, token);
                                 snapshots.AddRange(resultSegment.Results);
                                 token = resultSegment.ContinuationToken;
                             }
