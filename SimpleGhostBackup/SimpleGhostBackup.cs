@@ -117,7 +117,7 @@ namespace SimpleGhostBackup
                             var snapshots = new List<CloudFileShare>();
                             do
                             {
-                                ShareResultSegment resultSegment = await fileClient.ListSharesSegmentedAsync(storageShareName, token);
+                                ShareResultSegment resultSegment = await fileClient.ListSharesSegmentedAsync(storageShareName, ShareListingDetails.Snapshots, 5, token, null, null);
                                 snapshots.AddRange(resultSegment.Results);
                                 token = resultSegment.ContinuationToken;
                             }
@@ -134,7 +134,7 @@ namespace SimpleGhostBackup
                                 catch (Exception ex)
                                 {
                                     log.LogError($"Failed to delete snapshot - '{ex}'");
-                                }    
+                                }
                             }
                         }
                     }
