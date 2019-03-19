@@ -103,7 +103,7 @@ namespace SimpleGhostBackup
                     if (await file.ExistsAsync())
                     {
                         // Create the snapshotg of the file share
-                        log.LogInformation($"Backup file created - {0}", filename);
+                        log.LogInformation($"Backup file created - {filename}");
                         log.LogInformation($"Creating Azure Fileshare Snapshot");
                         var s = await share.SnapshotAsync();
                         if (s != null)
@@ -124,12 +124,12 @@ namespace SimpleGhostBackup
                             {
                                 try
                                 {
-                                    log.LogInformation($"Deleting snapshot - {0}, Created at {1}", snapshot.Name, snapshot.SnapshotTime);
+                                    log.LogInformation($"Deleting snapshot - {snapshot.Name}, Created at {snapshot.SnapshotTime}");
                                     await snapshot.DeleteAsync();
                                 }
                                 catch (Exception ex)
                                 {
-                                    log.LogError($"Failed to delete snapshot - '{0}'", ex.ToString());
+                                    log.LogError($"Failed to delete snapshot - '{ex}'");
                                 }    
                             }
                         }
