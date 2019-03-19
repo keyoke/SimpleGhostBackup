@@ -124,7 +124,8 @@ namespace SimpleGhostBackup
                             while (token != null);
 
                             //lets delete the old ones
-                            foreach (var snapshot in snapshots.Where(os => os.IsSnapshot).OrderByDescending(oos => oos.SnapshotTime).Skip(maxSnapshots).ToList())
+                            var toDelete = snapshots.Where(os => os.IsSnapshot).OrderByDescending(oos => oos.SnapshotTime).Skip(maxSnapshots).ToList();
+                            foreach (var snapshot in toDelete)
                             {
                                 try
                                 {
